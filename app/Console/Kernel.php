@@ -13,7 +13,7 @@ class Kernel extends ConsoleKernel
      * @var array
      */
     protected $commands = [
-        \App\Console\Commands\GenerateTrajetsCommand::class, // Commande pour générer les trajets
+        \App\Console\Commands\GenerateTrajets::class, // Commande pour générer les trajets
     ];
 
     /**

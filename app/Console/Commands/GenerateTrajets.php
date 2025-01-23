@@ -13,12 +13,13 @@ class GenerateTrajets extends Command
     /**
      * Nom et description de la commande.
      */
-    protected $signature = 'generate:trajets 
+    protected $signature = 'generate:trajets
                             {dateDebut : Date de début au format YYYY-MM-DD} 
                             {dateFin : Date de fin au format YYYY-MM-DD} 
                             {plageDebut : Heure de début de la plage horaire (format HH:mm)} 
                             {plageFin : Heure de fin de la plage horaire (format HH:mm)} 
-                            {trajetsParJour=5 : Nombre de trajets par jour (entre 5 et 8)}';
+                            {trajetsParJourMin=5 : Nombre minimum de trajets par jour (minimum 5)} 
+                            {trajetsParJourMax=10 : Nombre maximum de trajets par jour (maximum 10)}';
 
     protected $description = 'Génère des trajets automatiquement selon les paramètres.';
 
@@ -29,61 +30,51 @@ class GenerateTrajets extends Command
         $dateFin = $this->argument('dateFin');
         $plageDebut = $this->argument('plageDebut');
         $plageFin = $this->argument('plageFin');
-        $trajetsParJour = (int) $this->argument('trajetsParJour');
+        $trajetsParJourMin = (int) $this->argument('trajetsParJourMin');
+        $trajetsParJourMax = (int) $this->argument('trajetsParJourMax');
 
-        // Vérification si le nombre de trajets par jour est valide
-        if ($trajetsParJour < 5 || $trajetsParJour > 8) {
-            $this->error('Le nombre de trajets par jour doit être compris entre 5 et 8.');
+        // Validation des paramètres
+        if ($trajetsParJourMin < 5 || $trajetsParJourMax > 10 || $trajetsParJourMin > $trajetsParJourMax) {
+            $this->error('Le nombre de trajets par jour doit être compris entre 5 et 8, et trajetsParJourMin doit être inférieur ou égal à trajetsParJourMax.');
             return;
         }
 
-        // Conversion des plages horaires en objets Carbon
         $plageDebutTime = Carbon::createFromTimeString($plageDebut);
         $plageFinTime = Carbon::createFromTimeString($plageFin);
 
-        // Vérification des paramètres
         if ($plageDebutTime->greaterThanOrEqualTo($plageFinTime)) {
             $this->error('La plage horaire de début doit être avant la plage horaire de fin.');
             return;
         }
 
-        // Boucle sur les liaisons
         $liaisons = Liaison::all();
         $bateaux = Bateau::all();
 
         foreach ($liaisons as $liaison) {
             $this->info("Génération des trajets pour la liaison : {$liaison->idLiai}");
 
-            // Récupérer la durée de la liaison au format time 'HH:MM:SS' et la convertir en minutes
             $dureeLiaisonMinutes = $this->convertTimeToMinutes($liaison->duree);
 
-            // Boucle sur chaque jour entre dateDebut et dateFin
             $currentDate = Carbon::createFromFormat('Y-m-d', $dateDebut);
 
             while ($currentDate->format('Y-m-d') <= $dateFin) {
-                $this->info("Date : {$currentDate->format('Y-m-d')}");
+                // Nombre de trajets à générer pour ce jour
+                $trajetsParJour = rand($trajetsParJourMin, $trajetsParJourMax);
 
-                // Utilisation du nombre de trajets par jour fourni en paramètre
+                $this->info("Date : {$currentDate->format('Y-m-d')} ($trajetsParJour)");
+
                 for ($i = 0; $i < $trajetsParJour; $i++) {
-                    // Choisir un bateau aléatoire
                     $bateau = $bateaux->random();
 
-                    // Heure de départ aléatoire dans la plage
                     $heureDepart = $this->generateRandomTime($plageDebutTime, $plageFinTime);
-
-                    // Calcul de l'heure d'arrivée en ajoutant la durée de la liaison (en minutes) à l'heure de départ
                     $heureArrivee = (clone $heureDepart)->addMinutes($dureeLiaisonMinutes);
 
-                    // Vérification si l'heure d'arrivée est inférieure à l'heure de départ
-                    $dateArrivee = $currentDate; // Valeur par défaut
+                    $dateArrivee = $currentDate;
 
                     if ($heureArrivee->isBefore($heureDepart)) {
-                        // Si l'heure d'arrivée est avant l'heure de départ, on ajoute 1 jour à la date d'arrivée
                         $dateArrivee = $currentDate->copy()->addDay();
                     }
 
-
-                    // Insérer le trajet dans la base de données
                     Trajet::create([
                         'idLiaison' => $liaison->idLiai,
                         'idBateau' => $bateau->idBateau,
@@ -94,7 +85,6 @@ class GenerateTrajets extends Command
                     ]);
                 }
 
-                // Passer au jour suivant
                 $currentDate->addDay();
             }
         }
