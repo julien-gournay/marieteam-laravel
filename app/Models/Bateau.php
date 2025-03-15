@@ -16,6 +16,6 @@ class Bateau extends Model
 
     public function capitaine()
     {
-        return $this->belongsTo(Personnel::class, 'idCapitaine', 'idPers');
+        return $this->belongsTo(User::class, 'idCapitaine', 'idPers');
     }
 }
